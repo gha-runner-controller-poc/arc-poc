@@ -1,0 +1,56 @@
+name: Install Actions Runner Controller
+
+on:
+  workflow_dispatch: 
+  
+jobs:
+  install:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set Kubeconfig
+        uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          kubeconfig: ${{secrets.GITHUBRUNNERPOC_CLUSTER}}
+      
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: latest
+
+      - name: Fetch K8s Cluster Details
+        run: |
+          kubectl version
+          echo --------------------------------------------
+          helm version
+          echo --------------------------------------------
+          kubectl get nodes
+
+      - name: Install Actions Runner Controller
+        run: |
+          helm upgrade --install arc \
+            --namespace arc-systems \
+            --create-namespace \
+            -f ./arc-configs/controller/values.yaml \
+            oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set-controller \
+            --version "0.11.0"
+
+      - name: Create GitHub Token Secret in Kubernetes
+        run: |
+          kubectl create secret generic github-config-secret \
+            --namespace=arc-runners \
+            --create-namespace \
+            --from-literal=github_token="${{ secrets.MY_PAT_TOKEN_ORG }}"
+
+      - name: Install Runner Scale Set
+        run: |
+          helm upgrade --install arc-runners-set \
+            --namespace arc-runners \
+            --create-namespace \
+            -f ./arc-configs/runner-scale-set/values.yaml \
+            oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
+            --version "0.11.0"

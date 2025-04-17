@@ -1,0 +1,17 @@
+githubConfigUrl: "https://github.com/gha-runner-controller-poc"
+
+githubConfigSecret: github-config-secret
+
+maxRunners: 8
+minRunners: 2
+
+runnerGroup: "arc-runner-group"
+
+runnerScaleSetName: "custom-poc-runners"
+
+template:
+  spec:
+    containers:
+      - name: runner
+        image: ghcr.io/gha-runner-controller-poc/gha-runner-custom-image:20250417.4
+        command: ["/home/runner/run.sh"]

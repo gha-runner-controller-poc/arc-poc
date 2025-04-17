@@ -1,0 +1,8 @@
+labels:
+  runnerType: custom-poc
+  maintainedBy: suraj-dubey
+
+image:
+  repository: "ghcr.io/actions/gha-runner-scale-set-controller"
+  pullPolicy: IfNotPresent
+  tag: "0.11.0"
