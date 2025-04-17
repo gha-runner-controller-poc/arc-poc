@@ -5,7 +5,7 @@ on:
 
 jobs:
   baseline:
-    runs-on: custom-poc-runners-ss
+    runs-on: custom-poc-runners
 
     steps:
       - name: Checkout repo
