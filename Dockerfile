@@ -33,9 +33,9 @@ RUN apt update && apt install -y --no-install-recommends curl ca-certificates gn
 # Stage 4: Build GitHub Actions Runner
 # --------------------------------------------
 FROM mcr.microsoft.com/dotnet/runtime-deps:8.0-jammy AS build
-ARG TARGETOS
-ARG TARGETARCH
-ARG RUNNER_VERSION
+ARG TARGETOS="linux"
+ARG TARGETARCH="amd64"
+ARG RUNNER_VERSION=2.323.0
 ARG RUNNER_CONTAINER_HOOKS_VERSION=0.7.0
 
 RUN apt update && apt install -y --no-install-recommends curl unzip ca-certificates \
