@@ -31,4 +31,5 @@ jobs:
         with:
           file: ./Dockerfile
           push: true
-          tags: ghcr.io/${{ github.actor }}/gha-runner-custom-image:${{ steps.date.outputs.date }}.${{ github.run_number }}
+          # tags: ghcr.io/${{ github.actor }}/gha-runner-custom-image:${{ steps.date.outputs.date }}.${{ github.run_number }}
+          tags: ghcr.io/gha-runner-controller-poc/gha-runner-custom-image:${{ steps.date.outputs.date }}.${{ github.run_number }}
