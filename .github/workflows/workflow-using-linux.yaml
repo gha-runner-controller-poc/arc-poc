@@ -1,0 +1,72 @@
+name: Workflow with Ubuntu Latest
+
+on:
+  workflow_dispatch:
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Start timer
+        id: start_time
+        run: |
+          START_EPOCH=$(date +%s)
+          START_HUMAN=$(date -d "@$START_EPOCH" +%T)
+
+          echo "start_time=$START_EPOCH" >> $GITHUB_ENV
+          echo "start_time_human=$START_HUMAN" >> $GITHUB_ENV
+
+          echo "🟢 Start Time (Epoch): $START_EPOCH" >> $GITHUB_STEP_SUMMARY
+          echo "🟢 Start Time (Human): $START_HUMAN" >> $GITHUB_STEP_SUMMARY
+
+      - name: Install All Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            curl \
+            wget \
+            unzip \
+            jq \
+            git \
+            gettext \
+            gnupg \
+            software-properties-common \
+            nodejs \
+            npm \
+            ca-certificates
+
+          # Install Terraform
+          curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o hashicorp-archive-keyring.gpg
+          sudo install -o root -g root -m 0644 hashicorp-archive-keyring.gpg /usr/share/keyrings/
+          echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | \
+            sudo tee /etc/apt/sources.list.d/hashicorp.list
+          sudo apt-get update && sudo apt-get install -y terraform
+
+      - name: Show Installed Versions
+        run: |
+          echo "Terraform: $(terraform -version)"
+          echo "Node: $(node -v)"
+          echo "jq: $(jq --version)"
+          echo "Git: $(git --version)"
+
+      - name: End Timer & Report Duration
+        env:
+          start_time: ${{ env.start_time }}
+        run: |
+          END_EPOCH=$(date +%s)
+          END_HUMAN=$(date -d "@$END_EPOCH" +%T)
+
+          echo "end_time=$END_EPOCH" >> $GITHUB_ENV
+          echo "end_time_human=$END_HUMAN" >> $GITHUB_ENV
+
+          DURATION=$((END_EPOCH - start_time))
+          DURATION_HUMAN=$(printf '%02d:%02d:%02d\n' $((DURATION/3600)) $(( (DURATION%3600)/60 )) $((DURATION%60)))
+
+          echo "🔴 End Time (Epoch): $END_EPOCH" >> $GITHUB_STEP_SUMMARY
+          echo "🔴 End Time (Human): $END_HUMAN" >> $GITHUB_STEP_SUMMARY
+          echo "🕒 Duration (Seconds): $DURATION" >> $GITHUB_STEP_SUMMARY
+          echo "🕒 Duration (HH:MM:SS): $DURATION_HUMAN" >> $GITHUB_STEP_SUMMARY
