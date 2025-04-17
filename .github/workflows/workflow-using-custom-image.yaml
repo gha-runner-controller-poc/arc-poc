@@ -1,18 +1,17 @@
-name: Workflow with Ubuntu Latest
+name: Workflow with Custom Image
 
 on:
   workflow_dispatch:
 
 jobs:
-  baseline:
-    runs-on: ubuntu-latest
-
+  optimized-run:
+    runs-on: custom-poc-runners
     steps:
-      - name: Checkout repo
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Start timer
-        id: start_time
+      - name: Start Timer
+        id: start
         run: |
           START_EPOCH=$(date +%s)
           START_HUMAN=$(date -d "@$START_EPOCH" +%T)
@@ -23,31 +22,9 @@ jobs:
           echo "🟢 Start Time (Epoch): $START_EPOCH" >> $GITHUB_STEP_SUMMARY
           echo "🟢 Start Time (Human): $START_HUMAN" >> $GITHUB_STEP_SUMMARY
 
-      - name: Install All Tools
+      - name: Run CLI Tools
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            curl \
-            wget \
-            unzip \
-            jq \
-            git \
-            gettext \
-            gnupg \
-            software-properties-common \
-            nodejs \
-            npm \
-            ca-certificates
-
-          # Install Terraform
-          curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o hashicorp-archive-keyring.gpg
-          sudo install -o root -g root -m 0644 hashicorp-archive-keyring.gpg /usr/share/keyrings/
-          echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | \
-            sudo tee /etc/apt/sources.list.d/hashicorp.list
-          sudo apt-get update && sudo apt-get install -y terraform
-
-      - name: Show Installed Versions
-        run: |
+          echo "Verifying preinstalled tools..."
           echo "Terraform: $(terraform -version)"
           echo "Node: $(node -v)"
           echo "jq: $(jq --version)"
@@ -72,3 +49,4 @@ jobs:
           echo "🔴 End Time (Human): $END_HUMAN" >> $GITHUB_STEP_SUMMARY
           echo "🕒 Duration (Seconds): $DURATION" >> $GITHUB_STEP_SUMMARY
           echo "🕒 Duration (HH:MM:SS): $DURATION_HUMAN" >> $GITHUB_STEP_SUMMARY
+        
