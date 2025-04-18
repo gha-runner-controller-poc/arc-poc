@@ -30,6 +30,11 @@ jobs:
           echo --------------------------------------------
           kubectl get nodes
 
+      - name: Create Required Namespaces
+        run: |
+          kubectl create namespace arc-systems || true
+          kubectl create namespace arc-runners || true
+
       - name: Install Actions Runner Controller
         run: |
           helm upgrade --install arc \
@@ -43,7 +48,6 @@ jobs:
         run: |
           kubectl create secret generic github-config-secret \
             --namespace arc-runners \
-            --create-namespace \
             --from-literal=github_token="${{ secrets.MY_PAT_TOKEN_ORG }}"
 
       - name: Install Runner Scale Set
