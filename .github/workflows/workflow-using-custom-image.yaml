@@ -2,6 +2,12 @@ name: Workflow with Custom Image
 
 on:
   workflow_dispatch:
+    inputs:
+      tf-apply:
+        description: Run Tf apply?
+        default: false
+        required: true
+        type: boolean
 
 jobs:
   optimized-run:
@@ -55,9 +61,10 @@ jobs:
         working-directory: terraform
         run: terraform plan -var-file=providers-substituted.tfvars
 
-      # - name: Terraform Apply (auto-approve)
-      #   working-directory: terraform
-      #   run: terraform apply -auto-approve -var-file=providers-substituted.tfvars
+      - name: Terraform Apply (auto-approve)
+        if: ${{inputs.tf-apply}} == true
+        working-directory: terraform
+        run: terraform apply -auto-approve -var-file=providers-substituted.tfvars
 
       - name: End Timer & Report Duration
         env:
