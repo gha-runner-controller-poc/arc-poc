@@ -38,9 +38,9 @@ jobs:
       - name: Prepare tfvars file with secrets
         working-directory: terraform
         run: |
-          echo "Substituting secrets into terraform.tfvars.template..."
-          envsubst < terraform.tfvars.template > terraform.tfvars
-          echo "terraform.tfvars file created with secrets."
+          echo "Substituting secrets into providers.tfvars..."
+          envsubst < providers.tfvars > providers-substituted.tfvars
+          echo "providers.tfvars file updated with secrets."
 
       - name: Terraform Init
         working-directory: terraform
@@ -48,11 +48,11 @@ jobs:
 
       - name: Terraform Plan
         working-directory: terraform
-        run: terraform plan -var-file=terraform.tfvars
+        run: terraform plan -var-file=providers-substituted.tfvars
 
       # - name: Terraform Apply (auto-approve)
       #   working-directory: terraform
-      #   run: terraform apply -auto-approve -var-file=terraform.tfvars
+      #   run: terraform apply -auto-approve -var-file=providers-substituted.tfvars
 
       - name: End Timer & Report Duration
         env:
