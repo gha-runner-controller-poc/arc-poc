@@ -5,7 +5,7 @@ githubConfigSecret: github-config-secret
 maxRunners: 8
 minRunners: 2
 
-runnerGroup: "arc-runner-group"
+runnerGroup: "custom-runner-group"
 
 runnerScaleSetName: "custom-poc-runners"
 
