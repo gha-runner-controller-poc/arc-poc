@@ -42,7 +42,7 @@ jobs:
       - name: Create GitHub Token Secret in Kubernetes
         run: |
           kubectl create secret generic github-config-secret \
-            --namespace=arc-runners \
+            --namespace arc-runners \
             --create-namespace \
             --from-literal=github_token="${{ secrets.MY_PAT_TOKEN_ORG }}"
 
