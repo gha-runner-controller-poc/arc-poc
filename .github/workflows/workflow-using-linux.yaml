@@ -2,16 +2,29 @@ name: Workflow with Ubuntu Latest
 
 on:
   workflow_dispatch:
+    inputs:
+      tf-apply:
+        description: Run Tf apply?
+        default: false
+        required: true
+        type: boolean
 
 jobs:
   baseline:
     runs-on: ubuntu-latest
+    env:
+      APPID: ${{ secrets.APPID }}
+      PASSWORD: ${{ secrets.PASSWORD }}
+      ARM_CLIENT_ID: ${{ secrets.APPID }}
+      ARM_CLIENT_SECRET: ${{ secrets.PASSWORD }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.TENANT_ID }}
 
     steps:
-      - name: Checkout repo
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Start timer
+      - name: Start Timer
         id: start_time
         run: |
           START_EPOCH=$(date +%s)
@@ -48,12 +61,33 @@ jobs:
 
       - name: Show Installed Versions
         run: |
+          echo "Verifying installed tools..."
           echo "Terraform: $(terraform -version)"
           echo "Node: $(node -v)"
           echo "jq: $(jq --version)"
           echo "Git: $(git --version)"
           echo "Curl: $(curl --version)"
           echo "gettext: $(gettext --version)"
+
+      - name: Prepare tfvars file with secrets
+        working-directory: terraform
+        run: |
+          echo "Substituting secrets into providers.tfvars..."
+          envsubst < providers.tfvars > providers-substituted.tfvars
+          echo "providers.tfvars file updated with secrets."
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: terraform
+        run: terraform plan -var-file=providers-substituted.tfvars
+
+      - name: Terraform Apply (auto-approve)
+        if: ${{inputs.tf-apply == true }}
+        working-directory: terraform
+        run: terraform apply -auto-approve -var-file=providers-substituted.tfvars
 
       - name: End Timer & Report Duration
         env:

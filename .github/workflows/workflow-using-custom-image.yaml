@@ -36,7 +36,7 @@ jobs:
           echo "🟢 Start Time (Epoch): $START_EPOCH" >> $GITHUB_STEP_SUMMARY
           echo "🟢 Start Time (Human): $START_HUMAN" >> $GITHUB_STEP_SUMMARY
 
-      - name: Run CLI Tools
+      - name: Show Installed Versions
         run: |
           echo "Verifying preinstalled tools..."
           echo "Terraform: $(terraform -version)"
@@ -62,7 +62,7 @@ jobs:
         run: terraform plan -var-file=providers-substituted.tfvars
 
       - name: Terraform Apply (auto-approve)
-        if: ${{inputs.tf-apply}} == true
+        if: ${{inputs.tf-apply == true }}
         working-directory: terraform
         run: terraform apply -auto-approve -var-file=providers-substituted.tfvars
 
