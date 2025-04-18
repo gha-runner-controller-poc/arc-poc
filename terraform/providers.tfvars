@@ -1,0 +1,2 @@
+appId    = "$APPID"
+password = "$PASSWORD"

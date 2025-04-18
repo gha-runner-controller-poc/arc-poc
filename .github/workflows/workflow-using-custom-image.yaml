@@ -6,6 +6,9 @@ on:
 jobs:
   optimized-run:
     runs-on: custom-poc-runners
+    env:
+      APPID: ${{ secrets.APPID }}
+      PASSWORD: ${{ secrets.PASSWORD }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -32,6 +35,25 @@ jobs:
           echo "Curl: $(curl --version)"
           echo "gettext: $(gettext --version)"
 
+      - name: Prepare tfvars file with secrets
+        working-directory: terraform
+        run: |
+          echo "Substituting secrets into terraform.tfvars.template..."
+          envsubst < terraform.tfvars.template > terraform.tfvars
+          echo "terraform.tfvars file created with secrets."
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: terraform
+        run: terraform plan -var-file=terraform.tfvars
+
+      # - name: Terraform Apply (auto-approve)
+      #   working-directory: terraform
+      #   run: terraform apply -auto-approve -var-file=terraform.tfvars
+
       - name: End Timer & Report Duration
         env:
           start_time: ${{ env.start_time }}
@@ -49,4 +71,3 @@ jobs:
           echo "🔴 End Time (Human): $END_HUMAN" >> $GITHUB_STEP_SUMMARY
           echo "🕒 Duration (Seconds): $DURATION" >> $GITHUB_STEP_SUMMARY
           echo "🕒 Duration (HH:MM:SS): $DURATION_HUMAN" >> $GITHUB_STEP_SUMMARY
-        
