@@ -26,8 +26,11 @@ RUN curl -fsSL https://releases.hashicorp.com/vault/${VAULT_CLI_VERSION}/vault_$
     && rm vault.zip
 
 # Install Node.js (minimal)
-RUN curl -fsSL https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz | \
-    tar -xJ -C /node --strip-components=1 --exclude='CHANGELOG.md' --exclude='LICENSE' --exclude='README.md'
+RUN mkdir -p /node \
+    && curl -fsSL https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz -o node.tar.xz \
+    && tar -xJf node.tar.xz --strip-components=1 -C /node \
+    && rm node.tar.xz \
+    && rm -f /node/{CHANGELOG.md,README.md,LICENSE}
 
 # --------------------------------------------
 # Stage 2: Runner Build
