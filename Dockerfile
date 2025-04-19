@@ -1,50 +1,50 @@
 # --------------------------------------------
-# Stage 1: Install Terraform
+# Stage 1: Tool installations (Debian Slim)
 # --------------------------------------------
-FROM mcr.microsoft.com/dotnet/runtime-deps:8.0-jammy AS terraform-install
+FROM debian:bullseye-slim as tools
+
 ARG TERRAFORM_VERSION=1.8.0
-RUN apt update && apt install -y --no-install-recommends curl unzip ca-certificates \
-    && curl -fsSL https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip -o terraform.zip \
-    && unzip terraform.zip -d /terraform-bin \
-    && rm -rf terraform.zip /var/lib/apt/lists/*
-
-# --------------------------------------------
-# Stage 2: Install Vault CLI
-# --------------------------------------------
-FROM mcr.microsoft.com/dotnet/runtime-deps:8.0-jammy AS vault-install
 ARG VAULT_CLI_VERSION=1.19.1
-RUN apt update && apt install -y --no-install-recommends curl unzip ca-certificates \
-    && curl -fsSL https://releases.hashicorp.com/vault/${VAULT_CLI_VERSION}/vault_${VAULT_CLI_VERSION}_linux_amd64.zip -o vault.zip \
-    && unzip vault.zip -d /vault-bin \
-    && rm -rf vault.zip /var/lib/apt/lists/*
+ARG NODE_VERSION=20.11.1
 
-# --------------------------------------------
-# Stage 3: Install Node.js
-# --------------------------------------------
-FROM mcr.microsoft.com/dotnet/runtime-deps:8.0-jammy AS node-install
-ARG NODE_MAJOR=23
-RUN apt update && apt install -y --no-install-recommends curl ca-certificates gnupg \
-    && curl -fsSL https://deb.nodesource.com/setup_${NODE_MAJOR}.x | bash - \
-    && apt update && apt install -y --no-install-recommends nodejs \
-    && mkdir -p /node-bin && cp /usr/bin/node /usr/bin/npm /node-bin/ \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    unzip \
+    xz-utils \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Terraform
+RUN curl -fsSL https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip -o terraform.zip \
+    && unzip -j terraform.zip -d /terraform-bin \
+    && rm terraform.zip
+
+# Install Vault
+RUN curl -fsSL https://releases.hashicorp.com/vault/${VAULT_CLI_VERSION}/vault_${VAULT_CLI_VERSION}_linux_amd64.zip -o vault.zip \
+    && unzip -j vault.zip -d /vault-bin \
+    && rm vault.zip
+
+# Install Node.js (minimal)
+RUN curl -fsSL https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz | \
+    tar -xJ -C /node --strip-components=1 --exclude='CHANGELOG.md' --exclude='LICENSE' --exclude='README.md'
+
 # --------------------------------------------
-# Stage 4: Build GitHub Actions Runner
+# Stage 2: Runner Build
 # --------------------------------------------
 FROM mcr.microsoft.com/dotnet/runtime-deps:8.0-jammy AS build
-ARG TARGETOS="linux"
-ARG TARGETARCH="amd64"
+
 ARG RUNNER_VERSION=2.323.0
 ARG RUNNER_CONTAINER_HOOKS_VERSION=0.7.0
 
-RUN apt update && apt install -y --no-install-recommends curl unzip ca-certificates \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    curl \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /actions-runner
-RUN export RUNNER_ARCH=${TARGETARCH} \
-    && [ "$RUNNER_ARCH" = "amd64" ] && RUNNER_ARCH=x64 || true \
-    && curl -f -L -o runner.tar.gz https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-${TARGETOS}-${RUNNER_ARCH}-${RUNNER_VERSION}.tar.gz \
+RUN curl -f -L -o runner.tar.gz https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz \
     && tar xzf runner.tar.gz && rm runner.tar.gz
 
 RUN curl -f -L -o runner-container-hooks.zip https://github.com/actions/runner-container-hooks/releases/download/v${RUNNER_CONTAINER_HOOKS_VERSION}/actions-runner-hooks-k8s-${RUNNER_CONTAINER_HOOKS_VERSION}.zip \
@@ -52,34 +52,44 @@ RUN curl -f -L -o runner-container-hooks.zip https://github.com/actions/runner-c
     && rm runner-container-hooks.zip
 
 # --------------------------------------------
-# Final Stage: Runtime Image
+# Final Stage: Optimized Production Runtime
 # --------------------------------------------
 FROM mcr.microsoft.com/dotnet/runtime-deps:8.0-jammy
 
-ENV DEBIAN_FRONTEND=noninteractive
-ENV RUNNER_MANUALLY_TRAP_SIG=1
-ENV ACTIONS_RUNNER_PRINT_LOG_TO_STDOUT=1
-ENV ImageOS=ubuntu22
+HEALTHCHECK --interval=30s --timeout=10s --start-period=1m --retries=3 \
+    CMD ps aux | grep -q '[r]unner' || exit 1
 
-# Install minimal runtime dependencies
-RUN apt update && apt install -y --no-install-recommends \
-    sudo curl jq unzip git wget gettext gpg ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+ENV DEBIAN_FRONTEND=noninteractive \
+    RUNNER_MANUALLY_TRAP_SIG=1 \
+    ACTIONS_RUNNER_PRINT_LOG_TO_STDOUT=1 \
+    ImageOS=ubuntu22 \
+    PATH="/node/bin:${PATH}"
 
-# Add non-root user
-RUN adduser --disabled-password --gecos "" --uid 1001 runner \
-    && usermod -aG sudo runner \
-    && echo "%sudo   ALL=(ALL:ALL) NOPASSWD:ALL" > /etc/sudoers \
-    && echo "Defaults env_keep += \"DEBIAN_FRONTEND\"" >> /etc/sudoers
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    sudo \
+    git \
+    jq \
+    ca-certificates \
+    gettext \
+    wget \
+    gpg \
+    && apt-get clean \
+    && rm -rf \
+        /usr/share/doc/* \
+        /usr/share/man/* \
+        /var/lib/apt/lists/* \
+        /tmp/*
 
-# Copy tool binaries
-COPY --from=terraform-install /terraform-bin/terraform /usr/local/bin/
-COPY --from=vault-install /vault-bin/vault /usr/local/bin/
-COPY --from=node-install /node-bin/node /usr/local/bin/
-COPY --from=node-install /node-bin/npm /usr/local/bin/
+RUN adduser --disabled-password --gecos "" --uid 1001 runner && \
+    usermod -aG sudo runner && \
+    echo "%sudo ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/runner && \
+    chmod 0440 /etc/sudoers.d/runner
 
-# Copy GitHub Actions runner files
+COPY --from=tools /terraform-bin/* /usr/local/bin/
+COPY --from=tools /vault-bin/* /usr/local/bin/
+COPY --from=tools /node /node
+COPY --chown=runner:runner --from=build /actions-runner /home/runner
+
 WORKDIR /home/runner
-COPY --chown=runner:runner --from=build /actions-runner .
-
 USER runner
