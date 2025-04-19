@@ -47,8 +47,10 @@ jobs:
       - name: Create GitHub Token Secret in Kubernetes
         run: |
           kubectl create secret generic github-config-secret \
-            --namespace arc-runners \
-            --from-literal=github_token="${{ secrets.MY_PAT_TOKEN_ORG }}"
+          --namespace arc-runners \
+          --from-literal=github_token="${{ secrets.MY_PAT_TOKEN_ORG }}" \
+          --dry-run=client -o yaml | \
+          kubectl apply -f -
 
       - name: Install Runner Scale Set
         run: |
