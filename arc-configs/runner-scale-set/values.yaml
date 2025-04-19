@@ -13,5 +13,5 @@ template:
   spec:
     containers:
       - name: runner
-        image: ghcr.io/gha-runner-controller-poc/gha-runner-custom-image:20250417.4
+        image: ghcr.io/gha-runner-controller-poc/gha-runner-custom-image:20250419.6
         command: ["/home/runner/run.sh"]
