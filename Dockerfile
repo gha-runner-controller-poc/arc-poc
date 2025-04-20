@@ -1,5 +1,5 @@
 # --------------------------------------------
-# Stage 1: Tool installations (Debian Slim)
+# Stage 1: Unified tool installations
 # --------------------------------------------
 FROM debian:bullseye-slim as tools
 
@@ -7,6 +7,7 @@ ARG TERRAFORM_VERSION=1.8.0
 ARG VAULT_CLI_VERSION=1.19.1
 ARG NODE_VERSION=20.11.1
 
+# Install base dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     ca-certificates \
@@ -30,16 +31,17 @@ RUN mkdir -p /node \
     && curl -fsSL https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz -o node.tar.xz \
     && tar -xJf node.tar.xz --strip-components=1 -C /node \
     && rm node.tar.xz \
-    && rm -f /node/{CHANGELOG.md,README.md,LICENSE}
+    && rm -rf /node/{CHANGELOG.md,README.md,LICENSE,.npm,include,share/doc}
 
 # --------------------------------------------
-# Stage 2: Runner Build
+# Stage 2: Runner build
 # --------------------------------------------
 FROM mcr.microsoft.com/dotnet/runtime-deps:8.0-jammy AS build
 
 ARG RUNNER_VERSION=2.323.0
 ARG RUNNER_CONTAINER_HOOKS_VERSION=0.7.0
 
+# Install build dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     curl \
@@ -55,19 +57,16 @@ RUN curl -f -L -o runner-container-hooks.zip https://github.com/actions/runner-c
     && rm runner-container-hooks.zip
 
 # --------------------------------------------
-# Final Stage: Optimized Production Runtime
+# Final Stage: Optimized runtime
 # --------------------------------------------
-FROM mcr.microsoft.com/dotnet/runtime-deps:8.0-jammy
-
-HEALTHCHECK --interval=30s --timeout=10s --start-period=1m --retries=3 \
-    CMD ps aux | grep -q '[r]unner' || exit 1
+FROM debian:bullseye-slim
 
 ENV DEBIAN_FRONTEND=noninteractive \
     RUNNER_MANUALLY_TRAP_SIG=1 \
     ACTIONS_RUNNER_PRINT_LOG_TO_STDOUT=1 \
-    ImageOS=ubuntu22 \
     PATH="/node/bin:${PATH}"
 
+# Install essential runtime dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     sudo \
@@ -79,20 +78,30 @@ RUN apt-get update && \
     gpg \
     && apt-get clean \
     && rm -rf \
+        /var/lib/apt/lists/* \
         /usr/share/doc/* \
         /usr/share/man/* \
-        /var/lib/apt/lists/* \
         /tmp/*
 
+# Create non-root user
 RUN adduser --disabled-password --gecos "" --uid 1001 runner && \
     usermod -aG sudo runner && \
     echo "%sudo ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/runner && \
     chmod 0440 /etc/sudoers.d/runner
 
-COPY --from=tools /terraform-bin/* /usr/local/bin/
-COPY --from=tools /vault-bin/* /usr/local/bin/
-COPY --from=tools /node /node
+# Copy only necessary artifacts
+COPY --from=tools /terraform-bin/terraform /usr/local/bin/
+COPY --from=tools /vault-bin/vault /usr/local/bin/
+COPY --from=tools /node/bin/node /usr/local/bin/
+COPY --from=tools /node/lib/node_modules/ /usr/local/lib/node_modules/
 COPY --chown=runner:runner --from=build /actions-runner /home/runner
+
+# Create symlinks for npm/npx
+RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+    && ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
 WORKDIR /home/runner
 USER runner
+
+# Verify installations
+RUN terraform --version && vault --version && node --version
